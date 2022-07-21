@@ -1,0 +1,22 @@
+with 
+activity as(
+Select active as months, count(*) as Active_Customers, sum(saas_monthly) as total_monthly_saas_amount
+from (Select name, generate_series(DATE_TRUNC('month', origin_date::date), origin_date::date + (saas_contract_duration-1)*'1 month'::interval , '1 month'::interval) as active, saas_contract_total_value_in_usd/saas_contract_duration as saas_monthly from challenge_companies) as act
+where active<'2024-01-01'
+group by active),
+
+startdate as(
+Select start_date, count (*) as new_customers
+from (Select DATE_TRUNC('month', origin_date::date) as start_date from challenge_companies) as STRT
+group by start_date),
+
+churning as(
+Select churned_date, count (*) as churning_customers
+from (Select DATE_TRUNC('month', churned_date::date) as churned_date from challenge_companies) as CHRN
+group by churned_date)
+
+Select months::date, active_customers, coalesce(new_customers,0) as new_customers, coalesce(churning_customers,0) as churning_customers, total_monthly_saas_amount, coalesce(sum(new_customers) over (order by months),0) as total_customers_acquired, coalesce(sum(churning_customers) over (order by months),0) as total_customers_churned
+from activity 
+left join startdate on months=start_date
+left join churning on months=churned_date
+order by months
